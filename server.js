@@ -61,6 +61,10 @@ io.use(
 
 myDB(async client => {
   const myDataBase = await client.db('test').collection('user')
+
+  routes(app, myDataBase)
+  auth(app, myDataBase)
+
   
   let currentUsers = 0;
   io.on('connection', socket => {
@@ -95,8 +99,7 @@ myDB(async client => {
 
   })
 
-  routes(app, myDataBase)
-  auth(app, myDataBase)
+
 
 }).catch(e => {
   app.route('/').get((req, res) => {
