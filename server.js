@@ -9,8 +9,7 @@ const passport = require('passport')
 const routes = require('./routes.js')
 const auth = require('./auth.js')
 
-const passportSocketIo = require('passport.socketio')
-const cookieParser = require('cookie-parser')
+
 const MongoStore = require('connect-mongo')(session)
 const store = new MongoStore({ url: process.env.MONGO_URI })
 
@@ -25,39 +24,31 @@ app.use('/public', express.static(process.cwd() + '/public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  // https://www.npmjs.com/package/express-session
-  // How do I know if this is necessary for my store? The best way to know is to check with your store if it implements the touch method. If it does, then you can safely set resave: false. If it does not implement the touch method and your store sets an expiration date on stored sessions, then you likely need resave: true.
-  resave: true,
-  saveUninitialized: true,
-  cookie: { secure: false }
-}));
+
+
+const sessionMiddleware = session({ 
+  secret: process.env.SESSION_SECRET, 
+  resave: true, 
+  saveUninitialized: false 
+});
+app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
 
-const onAuthorizeSuccess = (data, accept) => {
-  console.log('successful connection to socket.io')
-  accept(null, true)
-}
 
-const onAuthorizeFail = (data, message, error, accept) => {
-  if (error) throw new Error(message)
-  console.log('failed connection to socket.io:', message)
-  accept(null, false)
-}
+// convert a connect middleware to a Socket.IO middleware
+const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
 
-io.use(
-  passportSocketIo.authorize({
-    cookieParser: cookieParser,
-    key: 'express.sid',
-    secret: process.env.SESSION_SECRET,
-    store: store,
-    success: onAuthorizeSuccess,
-    fail: onAuthorizeFail
-  })
-)
-
+io.use(wrap(sessionMiddleware));
+io.use(wrap(passport.initialize()));
+io.use(wrap(passport.session()));
+io.use((socket, next) => {
+  if ('user' in socket.request) {
+    next();
+  } else {
+    next(new Error("invalid"));
+  }
+});
 
 myDB(async client => {
   const myDataBase = await client.db('test').collection('user')
