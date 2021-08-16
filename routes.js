@@ -74,9 +74,7 @@ module.exports = (app, myDataBase) => {
 
   app.route('/chat')
     .get(ensureAuthenticated, (req, res) => {
-      res.render('./pug/chat', {
-        user: req.user
-      })
+      res.render('./pug/chat')
     })
 
 
