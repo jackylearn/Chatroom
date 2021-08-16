@@ -1,17 +1,12 @@
 'use strict';
 require('dotenv').config();
 const express = require('express');
-// const bodyParser = require('body-parser')
 const myDB = require('./connection');
 const fccTesting = require('./freeCodeCamp/fcctesting.js');
 const session = require('express-session');
 const passport = require('passport')
 const routes = require('./routes.js')
 const auth = require('./auth.js')
-
-
-const MongoStore = require('connect-mongo')(session)
-const store = new MongoStore({ url: process.env.MONGO_URI })
 
 const app = express();
 const http = require('http').createServer(app)
@@ -46,7 +41,7 @@ io.use((socket, next) => {
   if ('user' in socket.request) {
     next();
   } else {
-    next(new Error("invalid"));
+    next(new Error("socket request does not contain user information"));
   }
 });
 
@@ -57,21 +52,19 @@ myDB(async client => {
   io.on('connection', socket => {
     console.log('A user has connected')
 
-    // there is no request in keys of socket object, how to obtain the username??
-    let username = socket.request.user.name
-
+    // sometimes socket.request doesn't contain user info, server will crash due to accessing username of undefined
     io.emit('user', {
-      name: socket.request.user.name, // <----
+      name: socket.request.user.username, // <----
       currentUsers: ++currentUsers,
       connected: true
     });
 
-    console.log('user ' + socket.request.user.name  /* <---- */ + ' connected')
+    console.log('user ' + socket.request.user.username  + ' connected')
 
     socket.on('disconnect', () => {
         console.log('A user has disconnected')
         io.emit('user', {
-          name: socket.request.user.name, // <----
+          name: socket.request.user.username,
           currentUsers: --currentUsers,
           connected: false
         });
@@ -79,7 +72,7 @@ myDB(async client => {
 
     socket.on('chat message', (msg) => {
       io.emit('chat message', {
-        name: socket.request.user.name, // <----
+        name: socket.request.user.username, 
         message: msg
       })
     })
@@ -103,8 +96,3 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
   console.log('Listening on port ' + PORT);
 });
-
-// app.listen(PORT, () => {
-//   console.log('Listening on port ' + PORT);
-// });
-
